@@ -1,7 +1,11 @@
+using System.ComponentModel;
+
 namespace Seq.App.OpenTelemetry.Settings;
 
-enum OtlpExportProtocol
+public enum OtlpExportProtocol
 {
+    [Description("HTTP/Protobuf")]
     HttpProtobuf,
+    [Description("gRPC")]
     Grpc
 }

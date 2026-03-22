@@ -212,6 +212,30 @@ public string? BotToken { get; set; }
 public string? To { get; set; }
 ```
 
+### Enum settings
+
+When a setting has a fixed set of valid values, use an `enum` type instead of `string`. The Seq runtime presents enum settings as a dropdown in the UI and handles validation automatically, eliminating the need for manual parsing:
+
+```csharp
+using System.ComponentModel;
+
+public enum OtlpExportProtocol
+{
+    [Description("HTTP/Protobuf")]
+    HttpProtobuf,
+    [Description("gRPC")]
+    Grpc
+}
+
+[SeqAppSetting(
+    DisplayName = "Protocol",
+    HelpText = "The OTLP export protocol. The default is `HTTP/Protobuf`.",
+    IsOptional = true)]
+public OtlpExportProtocol Protocol { get; set; } = OtlpExportProtocol.HttpProtobuf;
+```
+
+Apply `[Description]` to enum members to control the text shown in the UI dropdown. Without it, the member name is displayed as-is. Use descriptions when the member name doesn't read naturally (e.g., `HttpProtobuf` vs `HTTP/Protobuf`).
+
 ### Setting validation
 
 Validate required settings in `OnAttached()` and throw `ArgumentException` with a message that names the setting using its display name in backticks:

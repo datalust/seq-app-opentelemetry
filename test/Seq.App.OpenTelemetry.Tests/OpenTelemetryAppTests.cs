@@ -52,17 +52,6 @@ public class OpenTelemetryAppTests
     }
 
     [Fact]
-    public void InvalidProtocolThrowsOnAttach()
-    {
-        var exporter = new TestExporter();
-        var app = new OpenTelemetryApp(exporter);
-        app.Protocol = "Invalid";
-
-        var ex = Record.Exception(() => app.Attach(new TestAppHost()));
-        Assert.IsType<ArgumentException>(ex);
-    }
-
-    [Fact]
     public void InvalidNumericSettingsThrowOnAttach()
     {
         var exporter = new TestExporter();

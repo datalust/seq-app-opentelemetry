@@ -31,9 +31,9 @@ public class OpenTelemetryApp : SeqApp, ISubscribeToJsonAsync, IAsyncDisposable
 
     [SeqAppSetting(
         DisplayName = "Protocol",
-        HelpText = "The OTLP export protocol: `HttpProtobuf` or `Grpc`. The default is `HttpProtobuf`.",
+        HelpText = "The OTLP export protocol. The default is `HttpProtobuf`.",
         IsOptional = true)]
-    public string? Protocol { get; set; }
+    public OtlpExportProtocol Protocol { get; set; } = OtlpExportProtocol.HttpProtobuf;
 
     [SeqAppSetting(
         DisplayName = "Headers",
@@ -81,20 +81,18 @@ public class OpenTelemetryApp : SeqApp, ISubscribeToJsonAsync, IAsyncDisposable
         if (FlushIntervalMs <= 0)
             throw new ArgumentException("`Flush interval (ms)` must be greater than zero.");
 
-        var protocol = ParseProtocol(Protocol);
-
         var endpoint = Endpoint;
         if (string.IsNullOrWhiteSpace(endpoint))
         {
-            endpoint = protocol == OtlpExportProtocol.Grpc
+            endpoint = Protocol == OtlpExportProtocol.Grpc
                 ? "http://localhost:4317"
                 : "http://localhost:4318";
         }
 
-        var headers = ParseHeaders(Headers);
+        var headers = HeaderParser.ParseHeaders(Headers);
         _configuredResourceAttributes = ResourceBuilder.ParseConfiguredAttributes(ResourceAttributes);
 
-        _exporter ??= protocol == OtlpExportProtocol.Grpc
+        _exporter ??= Protocol == OtlpExportProtocol.Grpc
             ? new GrpcExporter(endpoint, headers)
             : new HttpProtobufExporter(endpoint, headers);
 
@@ -129,35 +127,4 @@ public class OpenTelemetryApp : SeqApp, ISubscribeToJsonAsync, IAsyncDisposable
             await _exporter.DisposeAsync();
     }
 
-    static OtlpExportProtocol ParseProtocol(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value) ||
-            value.Equals("HttpProtobuf", StringComparison.OrdinalIgnoreCase))
-            return OtlpExportProtocol.HttpProtobuf;
-
-        if (value.Equals("Grpc", StringComparison.OrdinalIgnoreCase))
-            return OtlpExportProtocol.Grpc;
-
-        throw new ArgumentException(
-            $"Invalid `Protocol` value '{value}'. Expected `HttpProtobuf` or `Grpc`.");
-    }
-
-    static IReadOnlyList<KeyValuePair<string, string>>? ParseHeaders(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        var result = new List<KeyValuePair<string, string>>();
-        foreach (var pair in value.Split(','))
-        {
-            var eqIndex = pair.IndexOf('=');
-            if (eqIndex <= 0) continue;
-
-            var key = pair[..eqIndex].Trim();
-            var val = pair[(eqIndex + 1)..].Trim();
-            result.Add(new KeyValuePair<string, string>(key, val));
-        }
-
-        return result.Count > 0 ? result : null;
-    }
 }
