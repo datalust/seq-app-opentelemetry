@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Seq.App.OpenTelemetry/Seq.App.OpenTelemetry.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/Seq.App.OpenTelemetry.Tests/Seq.App.OpenTelemetry.Tests.csproj" />
+    <Project Path="test/Seq.App.OpenTelemetry.SmokeTest/Seq.App.OpenTelemetry.SmokeTest.csproj" />
+  </Folder>
+</Solution>
