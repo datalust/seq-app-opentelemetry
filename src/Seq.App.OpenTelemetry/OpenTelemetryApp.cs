@@ -24,7 +24,8 @@ public class OpenTelemetryApp : SeqApp, ISubscribeToJsonAsync, IAsyncDisposable
 
     [SeqAppSetting(
         DisplayName = "Endpoint",
-        HelpText = "The OTLP endpoint base URL. The default for HTTP is `http://localhost:4318`, " +
+        HelpText = "The OTLP endpoint base URL; for HTTP exports, `/v1/logs` and `/v1/traces` are " +
+                   "appended automatically. The default for HTTP is `http://localhost:4318`, " +
                    "and for gRPC is `http://localhost:4317`.",
         IsOptional = true)]
     public string? Endpoint { get; set; }
@@ -80,6 +81,8 @@ public class OpenTelemetryApp : SeqApp, ISubscribeToJsonAsync, IAsyncDisposable
             throw new ArgumentException("`Max queue size` must be greater than zero.");
         if (FlushIntervalMs <= 0)
             throw new ArgumentException("`Flush interval (ms)` must be greater than zero.");
+        if (MaxQueueSize < MaxBatchSize)
+            throw new ArgumentException("`Max queue size` must be at least `Max batch size`.");
 
         var endpoint = Endpoint;
         if (string.IsNullOrWhiteSpace(endpoint))
@@ -93,29 +96,42 @@ public class OpenTelemetryApp : SeqApp, ISubscribeToJsonAsync, IAsyncDisposable
         _configuredResourceAttributes = ResourceBuilder.ParseConfiguredAttributes(ResourceAttributes);
 
         _exporter ??= Protocol == OtlpExportProtocol.Grpc
-            ? new GrpcExporter(endpoint, headers)
-            : new HttpProtobufExporter(endpoint, headers);
+            ? new GrpcExporter(endpoint, headers, Log)
+            : new HttpProtobufExporter(endpoint, headers, Log);
 
         _pump = new BatchPump(_exporter, MaxBatchSize, MaxQueueSize, FlushIntervalMs, Log);
     }
 
     public async Task OnAsync(string json)
     {
-        using var evt = ClefParser.Parse(json);
+        LogRecord? record = null;
+        Span? span = null;
+        Resource? resource = null;
+        InstrumentationScope? scope = null;
 
-        var resource = ResourceBuilder.Build(evt, _configuredResourceAttributes);
-        var scope = ResourceBuilder.BuildScope(evt);
-
-        if (evt.IsSpan)
+        try
         {
-            var span = SpanConverter.Convert(evt);
-            await _pump!.EnqueueSpanAsync(span, resource, scope);
+            using var evt = ClefParser.Parse(json);
+
+            resource = ResourceBuilder.Build(evt, _configuredResourceAttributes);
+            scope = ResourceBuilder.BuildScope(evt);
+
+            if (evt.IsSpan)
+                span = SpanConverter.Convert(evt);
+            else
+                record = LogRecordConverter.Convert(evt);
         }
+        catch (Exception ex)
+        {
+            // One malformed event shouldn't disrupt the stream; drop it and continue.
+            Log.Error(ex, "Failed to convert an incoming event to OTLP; the event has been dropped");
+            return;
+        }
+
+        if (span != null)
+            await _pump!.EnqueueSpanAsync(span, resource!, scope);
         else
-        {
-            var record = LogRecordConverter.Convert(evt);
-            await _pump!.EnqueueLogAsync(record, resource, scope);
-        }
+            await _pump!.EnqueueLogAsync(record!, resource!, scope);
     }
 
     public async ValueTask DisposeAsync()

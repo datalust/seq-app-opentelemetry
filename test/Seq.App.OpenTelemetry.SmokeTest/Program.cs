@@ -45,7 +45,7 @@ try
     var resourceAttributes = "\"@ra\":{\"service\":{\"name\":\"Seq.App.OpenTelemetry.SmokeTest\"}}";
 
     var sampleLog = $$"""
-        {"@t":"{{Timestamp(spanEnd)}}","@l":"Information","@mt":"Smoke test event from {Source}","@tr":"{{traceId}}","@sp":"{{spanId}}",{{resourceAttributes}},"Source":"Seq.App.OpenTelemetry.SmokeTest"}
+        {"@t":"{{Timestamp(spanEnd)}}","@l":"Information","@mt":"Smoke test event from {Source}","@tr":"{{traceId}}","@sp":"{{spanId}}",{{resourceAttributes}},"Source":"Program.cs"}
         """;
     await app.OnAsync(sampleLog);
     Console.WriteLine("Sample log event sent.");

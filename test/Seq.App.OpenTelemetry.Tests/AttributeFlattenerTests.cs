@@ -83,16 +83,17 @@ public class AttributeFlattenerTests
     }
 
     [Fact]
-    public void KeepsObjectsNestedInsideArraysAsStructuredValues()
+    public void ObjectsNestedInsideArraysBecomeJsonStrings()
     {
-        // Arrays are never flattened, so objects inside them stay structured (kvlist) values.
+        // Arrays are never flattened; resource and scope attribute values are restricted to
+        // primitives and arrays of primitives, so objects inside arrays are JSON-encoded.
         var attrs = Flatten("""{"servers":[{"name":"a"},{"name":"b"}]}""");
 
         Assert.Single(attrs);
         var array = attrs["servers"].ArrayValue;
         Assert.Equal(2, array.Values.Count);
-        Assert.Equal("a", array.Values[0].KvlistValue.Values[0].Value.StringValue);
-        Assert.Equal("name", array.Values[0].KvlistValue.Values[0].Key);
+        Assert.Equal("""{"name":"a"}""", array.Values[0].StringValue);
+        Assert.Equal("""{"name":"b"}""", array.Values[1].StringValue);
     }
 
     [Fact]
@@ -106,44 +107,34 @@ public class AttributeFlattenerTests
     }
 
     [Fact]
-    public void FallsBackToStructuredValueBeyondMaxDepth()
+    public void FallsBackToJsonStringBeyondMaxDepth()
     {
         // a.b.c.d.e would be the sixth level; flattening stops at the fifth key segment and the
-        // remaining object is emitted as a structured kvlist value.
+        // remaining object is emitted as a JSON string (resource and scope attribute values are
+        // restricted to primitives and arrays).
         var attrs = Flatten("""{"a":{"b":{"c":{"d":{"e":{"f":"deep"}}}}}}""");
 
         Assert.Single(attrs);
-        var fallback = attrs["a.b.c.d.e"];
-        Assert.NotNull(fallback.KvlistValue);
-        var inner = fallback.KvlistValue.Values;
-        Assert.Single(inner);
-        Assert.Equal("f", inner[0].Key);
-        Assert.Equal("deep", inner[0].Value.StringValue);
+        Assert.Equal("""{"f":"deep"}""", attrs["a.b.c.d.e"].StringValue);
     }
 
     [Fact]
     public void FallbackPreservesEvenDeeperNesting()
     {
-        // Everything below the depth limit is kept verbatim as nested structure, not dropped.
+        // Everything below the depth limit is kept verbatim in the JSON encoding, not dropped.
         var attrs = Flatten("""{"a":{"b":{"c":{"d":{"e":{"f":{"g":"deepest"}}}}}}}""");
 
         Assert.Single(attrs);
-        var level5 = attrs["a.b.c.d.e"].KvlistValue.Values;
-        var f = Assert.Single(level5);
-        Assert.Equal("f", f.Key);
-        var g = Assert.Single(f.Value.KvlistValue.Values);
-        Assert.Equal("g", g.Key);
-        Assert.Equal("deepest", g.Value.StringValue);
+        Assert.Equal("""{"f":{"g":"deepest"}}""", attrs["a.b.c.d.e"].StringValue);
     }
 
     [Fact]
-    public void EmptyNestedObjectIsPreservedAsEmptyStructuredValue()
+    public void EmptyNestedObjectIsPreservedAsJsonString()
     {
         var attrs = Flatten("""{"service":{}}""");
 
         Assert.Single(attrs);
-        Assert.NotNull(attrs["service"].KvlistValue);
-        Assert.Empty(attrs["service"].KvlistValue.Values);
+        Assert.Equal("{}", attrs["service"].StringValue);
     }
 
     [Fact]

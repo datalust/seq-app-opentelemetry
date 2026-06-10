@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace Seq.App.OpenTelemetry.Parsing;
@@ -42,25 +43,23 @@ static class ClefParser
         {
             if (prop.NameEquals(Prop_t))
             {
-                timestamp = prop.Value.ValueKind == JsonValueKind.String
-                    ? DateTimeOffset.Parse(prop.Value.GetString()!)
-                    : default;
+                timestamp = AsTimestamp(prop.Value) ?? default;
             }
             else if (prop.NameEquals(Prop_l))
             {
-                level = prop.Value.GetString();
+                level = AsString(prop.Value);
             }
             else if (prop.NameEquals(Prop_mt))
             {
-                messageTemplate = prop.Value.GetString();
+                messageTemplate = AsString(prop.Value);
             }
             else if (prop.NameEquals(Prop_m))
             {
-                renderedMessage = prop.Value.GetString();
+                renderedMessage = AsString(prop.Value);
             }
             else if (prop.NameEquals(Prop_x))
             {
-                exception = prop.Value.GetString();
+                exception = AsString(prop.Value);
             }
             else if (prop.NameEquals(Prop_i))
             {
@@ -70,25 +69,23 @@ static class ClefParser
             }
             else if (prop.NameEquals(Prop_tr))
             {
-                traceId = prop.Value.GetString();
+                traceId = AsString(prop.Value);
             }
             else if (prop.NameEquals(Prop_sp))
             {
-                spanId = prop.Value.GetString();
+                spanId = AsString(prop.Value);
             }
             else if (prop.NameEquals(Prop_ps))
             {
-                parentSpanId = prop.Value.GetString();
+                parentSpanId = AsString(prop.Value);
             }
             else if (prop.NameEquals(Prop_st))
             {
-                spanStart = prop.Value.ValueKind == JsonValueKind.String
-                    ? DateTimeOffset.Parse(prop.Value.GetString()!)
-                    : null;
+                spanStart = AsTimestamp(prop.Value);
             }
             else if (prop.NameEquals(Prop_sk))
             {
-                spanKind = prop.Value.GetString();
+                spanKind = AsString(prop.Value);
             }
             else if (prop.NameEquals(Prop_sa))
             {
@@ -136,6 +133,15 @@ static class ClefParser
             Properties = properties
         };
     }
+
+    static string? AsString(JsonElement value) =>
+        value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    static DateTimeOffset? AsTimestamp(JsonElement value) =>
+        value.ValueKind == JsonValueKind.String &&
+        DateTimeOffset.TryParse(value.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var timestamp)
+            ? timestamp
+            : null;
 
     static List<KeyValuePair<string, JsonElement>> ReadProperties(JsonElement obj)
     {

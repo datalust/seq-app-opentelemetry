@@ -11,18 +11,19 @@ static class AttributeFlattener
 {
     /// <summary>
     /// The maximum object nesting depth that is unpacked into dotted attribute keys. Once a key
-    /// reaches this many segments, any remaining object structure is emitted as a single structured
-    /// <see cref="AnyValue"/> rather than being flattened further. This keeps pathological or deeply
+    /// reaches this many segments, any remaining object structure is emitted as a single
+    /// JSON-encoded string rather than being flattened further. This keeps pathological or deeply
     /// recursive payloads from producing an unbounded number of attributes.
     /// </summary>
-    public const int MaxDepth = 5;
+    const int MaxDepth = 5;
 
     /// <summary>
     /// Flattens the properties of <paramref name="obj"/> into <paramref name="attributes"/>, unpacking
     /// nested objects into dotted keys. Later keys overwrite earlier ones, so callers can seed
-    /// <paramref name="attributes"/> with lower-priority defaults before flattening. Non-object
-    /// values (and anything below <see cref="MaxDepth"/>) are converted with
-    /// <see cref="AnyValueConverter"/>, preserving arrays and deep structures as-is.
+    /// <paramref name="attributes"/> with lower-priority defaults before flattening. Leaves are
+    /// converted with <see cref="AnyValueConverter.ConvertStandard"/> — resource and scope
+    /// attributes only permit standard (primitive and array) values, so any object remaining at a
+    /// leaf (below <see cref="MaxDepth"/>, or nested inside an array) becomes a JSON string.
     /// </summary>
     public static void Flatten(JsonElement obj, IDictionary<string, AnyValue> attributes)
     {
@@ -55,11 +56,11 @@ static class AttributeFlattener
             }
 
             // A non-empty object is fully represented by its flattened children. An empty object has
-            // no children, so fall through and emit it as an empty structured value to keep the key.
+            // no children, so fall through and emit it as a JSON string to keep the key.
             if (!empty)
                 return;
         }
 
-        attributes[key] = AnyValueConverter.Convert(value);
+        attributes[key] = AnyValueConverter.ConvertStandard(value);
     }
 }

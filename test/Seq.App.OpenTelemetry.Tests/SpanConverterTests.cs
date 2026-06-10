@@ -127,19 +127,122 @@ public class SpanConverterTests
     }
 
     [Theory]
-    [InlineData(null, Status.Types.StatusCode.Ok)]
-    [InlineData("Information", Status.Types.StatusCode.Ok)]
-    [InlineData("Warning", Status.Types.StatusCode.Ok)]
-    [InlineData("Error", Status.Types.StatusCode.Error)]
-    [InlineData("Fatal", Status.Types.StatusCode.Error)]
-    public void MapsStatusCode(string? level, Status.Types.StatusCode expectedCode)
+    [InlineData(null)]
+    public void StatusIsUnsetForNullLevel(string? level)
     {
+        // In OTLP, `Ok` is an explicit assertion of success; an absent status (`Unset`) is the
+        // idiomatic representation of "completed normally".
         var levelPart = level != null ? $",\"@l\":\"{level}\"" : "";
         var json = "{\"@t\":\"2024-01-15T10:30:01Z\",\"@tr\":\"abc\",\"@sp\":\"def\",\"@st\":\"2024-01-15T10:30:00Z\"" + levelPart + "}";
         using var evt = ClefParser.Parse(json);
 
         var span = SpanConverter.Convert(evt);
-        Assert.Equal(expectedCode, span.Status.Code);
+        Assert.Null(span.Status);
+    }
+
+    [Theory]
+    [InlineData("Error")]
+    [InlineData("Fatal")]
+    [InlineData("ERROR")]
+    [InlineData("err")]
+    [InlineData("Critical")]
+    public void StatusIsErrorForErrorLevels(string level)
+    {
+        var json = "{\"@t\":\"2024-01-15T10:30:01Z\",\"@tr\":\"abc\",\"@sp\":\"def\",\"@st\":\"2024-01-15T10:30:00Z\",\"@l\":\"" + level + "\"}";
+        using var evt = ClefParser.Parse(json);
+
+        var span = SpanConverter.Convert(evt);
+        Assert.NotNull(span.Status);
+        Assert.Equal(Status.Types.StatusCode.Error, span.Status.Code);
+    }
+
+    [Theory]
+    [InlineData("OK")]
+    [InlineData("Ok")]
+    [InlineData("ok")]
+    [InlineData("Information")]
+    public void OkLevelRoundTripsAsExplicitOkStatus(string level)
+    {
+        // Seq surfaces a span's explicitly-set `Ok` status as an "OK" level, so converting it
+        // back to `StatusCode.Ok` (rather than leaving the status unset) preserves the original
+        // assertion. The level itself is fully represented by the status, so no `seq.level`
+        // attribute is added.
+        var json = "{\"@t\":\"2024-01-15T10:30:01Z\",\"@tr\":\"abc\",\"@sp\":\"def\",\"@st\":\"2024-01-15T10:30:00Z\",\"@l\":\"" + level + "\"}";
+        using var evt = ClefParser.Parse(json);
+
+        var span = SpanConverter.Convert(evt);
+
+        Assert.NotNull(span.Status);
+        Assert.Equal(Status.Types.StatusCode.Ok, span.Status.Code);
+        Assert.DoesNotContain(span.Attributes, a => a.Key == "seq.level");
+    }
+
+    [Fact]
+    public void ErrorStatusMessageComesFromExceptionFirstLine()
+    {
+        using var evt = ClefParser.Parse("""
+        {
+            "@t":"2024-01-15T10:30:01Z",
+            "@tr":"abc","@sp":"def","@st":"2024-01-15T10:30:00Z",
+            "@l":"Error",
+            "@x":"System.TimeoutException: The operation timed out\n   at Foo.Bar()"
+        }
+        """);
+
+        var span = SpanConverter.Convert(evt);
+        Assert.Equal("System.TimeoutException: The operation timed out", span.Status.Message);
+    }
+
+    [Fact]
+    public void LevelIsPreservedAsAttribute()
+    {
+        var json = "{\"@t\":\"2024-01-15T10:30:01Z\",\"@tr\":\"abc\",\"@sp\":\"def\",\"@st\":\"2024-01-15T10:30:00Z\",\"@l\":\"Warning\"}";
+        using var evt = ClefParser.Parse(json);
+
+        var span = SpanConverter.Convert(evt);
+        var attr = span.Attributes.FirstOrDefault(a => a.Key == "seq.level");
+        Assert.NotNull(attr);
+        Assert.Equal("Warning", attr.Value.StringValue);
+    }
+
+    [Fact]
+    public void ExceptionBecomesSpanEvent()
+    {
+        using var evt = ClefParser.Parse("""
+        {
+            "@t":"2024-01-15T10:30:01Z",
+            "@tr":"abc","@sp":"def","@st":"2024-01-15T10:30:00Z",
+            "@x":"System.InvalidOperationException: Something went wrong\n   at Foo.Bar()"
+        }
+        """);
+
+        var span = SpanConverter.Convert(evt);
+
+        var exceptionEvent = Assert.Single(span.Events);
+        Assert.Equal("exception", exceptionEvent.Name);
+        Assert.Equal(span.EndTimeUnixNano, exceptionEvent.TimeUnixNano);
+
+        var attrs = exceptionEvent.Attributes.ToDictionary(a => a.Key, a => a.Value);
+        Assert.Equal("System.InvalidOperationException", attrs["exception.type"].StringValue);
+        Assert.Equal("Something went wrong", attrs["exception.message"].StringValue);
+        Assert.Contains("at Foo.Bar()", attrs["exception.stacktrace"].StringValue);
+    }
+
+    [Fact]
+    public void StructuredPropertiesBecomeJsonStringAttributes()
+    {
+        // Span attributes are restricted to standard (primitive and array) values.
+        using var evt = ClefParser.Parse("""
+        {
+            "@t":"2024-01-15T10:30:01Z",
+            "@tr":"abc","@sp":"def","@st":"2024-01-15T10:30:00Z",
+            "Request":{"Path":"/api/users"}
+        }
+        """);
+
+        var span = SpanConverter.Convert(evt);
+        var attrs = span.Attributes.ToDictionary(a => a.Key, a => a.Value);
+        Assert.Equal("""{"Path":"/api/users"}""", attrs["Request"].StringValue);
     }
 
     [Fact]
