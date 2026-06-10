@@ -420,3 +420,5 @@ FodyWeavers.xsd
 .idea
 .DS_Store
 
+.mcp.json
+.claude/*

@@ -3,7 +3,7 @@ using Google.Protobuf;
 
 namespace Seq.App.OpenTelemetry.Export;
 
-class HttpProtobufExporter : IOtlpExporter
+class HttpProtobufExporter : OtlpExporter
 {
     readonly HttpClient _httpClient;
     readonly Uri _logsEndpoint;
@@ -15,7 +15,7 @@ class HttpProtobufExporter : IOtlpExporter
         _logsEndpoint = new Uri($"{baseUri}/v1/logs");
         _tracesEndpoint = new Uri($"{baseUri}/v1/traces");
 
-        _httpClient = new HttpClient();
+        _httpClient = new HttpClient { Timeout = RequestTimeout };
         if (headers != null)
         {
             foreach (var header in headers)
@@ -23,12 +23,12 @@ class HttpProtobufExporter : IOtlpExporter
         }
     }
 
-    public async Task ExportLogsAsync(ExportLogsServiceRequest request, CancellationToken ct)
+    public override async Task ExportLogsAsync(ExportLogsServiceRequest request, CancellationToken ct)
     {
         await SendAsync(request, _logsEndpoint, ct);
     }
 
-    public async Task ExportTracesAsync(ExportTraceServiceRequest request, CancellationToken ct)
+    public override async Task ExportTracesAsync(ExportTraceServiceRequest request, CancellationToken ct)
     {
         await SendAsync(request, _tracesEndpoint, ct);
     }
@@ -67,7 +67,7 @@ class HttpProtobufExporter : IOtlpExporter
             or HttpStatusCode.GatewayTimeout;
     }
 
-    public ValueTask DisposeAsync()
+    public override ValueTask DisposeAsync()
     {
         _httpClient.Dispose();
         return default;

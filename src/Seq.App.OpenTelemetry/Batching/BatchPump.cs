@@ -5,7 +5,7 @@ namespace Seq.App.OpenTelemetry.Batching;
 
 class BatchPump : IAsyncDisposable
 {
-    readonly IOtlpExporter _exporter;
+    readonly OtlpExporter _exporter;
     readonly int _maxBatchSize;
     readonly int _maxQueueSize;
     readonly int _flushIntervalMs;
@@ -21,7 +21,7 @@ class BatchPump : IAsyncDisposable
     volatile bool _backpressureActive;
     volatile bool _disposed;
 
-    public BatchPump(IOtlpExporter exporter, int maxBatchSize, int maxQueueSize, int flushIntervalMs, ILogger log)
+    public BatchPump(OtlpExporter exporter, int maxBatchSize, int maxQueueSize, int flushIntervalMs, ILogger log)
     {
         _exporter = exporter;
         _maxBatchSize = maxBatchSize;

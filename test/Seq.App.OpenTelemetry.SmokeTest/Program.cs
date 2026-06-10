@@ -1,35 +1,68 @@
-using Seq.Apps.Testing.Hosting;
+using System.Globalization;
+using System.Reflection;
+using Seq.App.OpenTelemetry;
+using Seq.App.OpenTelemetry.SmokeTest.Support;
+using Seq.Apps;
+using Serilog;
 
-var app = new Seq.App.OpenTelemetry.OpenTelemetryApp();
-var host = new TestAppHost();
-var settings = (IDictionary<string, string>)host.App.Settings;
+var app = new OpenTelemetryApp();
 
-// Read settings from SEQ_APP_SETTING_* environment variables
-var settingNames = new[]
+foreach (var property in typeof(OpenTelemetryApp).GetProperties())
 {
-    "Endpoint", "Protocol", "Headers", "ResourceAttributes",
-    "MaxBatchSize", "MaxQueueSize", "FlushIntervalMs"
-};
+    if (property.GetCustomAttribute<SeqAppSettingAttribute>() == null)
+        continue;
 
-foreach (var name in settingNames)
-{
-    var envValue = Environment.GetEnvironmentVariable($"SEQ_APP_SETTING_{name.ToUpperInvariant()}");
-    if (envValue != null)
-        settings[name] = envValue;
+    var envValue = Environment.GetEnvironmentVariable($"SEQ_APP_SETTING_{property.Name.ToUpperInvariant()}");
+    if (envValue == null)
+        continue;
+
+    var targetType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+    var value = targetType.IsEnum
+        ? Enum.Parse(targetType, envValue, ignoreCase: true)
+        : Convert.ChangeType(envValue, targetType, CultureInfo.InvariantCulture);
+
+    property.SetValue(app, value);
+    Console.WriteLine($"{property.Name} = {envValue}");
 }
+
+var errors = new ErrorCountingSink();
+await using var logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .WriteTo.Sink(errors)
+    .CreateLogger();
 
 try
 {
-    app.Attach(host);
+    app.Attach(new SmokeTestAppHost(logger));
     Console.WriteLine("App attached successfully.");
 
-    var sampleLog = """{"@t":"2024-01-15T10:30:00Z","@l":"Information","@mt":"Smoke test event from {Source}","Source":"Seq.App.OpenTelemetry.SmokeTest"}""";
+    var traceId = RandomHex(16);
+    var spanId = RandomHex(8);
+    var spanEnd = DateTime.UtcNow;
+    var spanStart = spanEnd - TimeSpan.FromMilliseconds(120);
 
+    var sampleLog = $$"""
+        {"@t":"{{Timestamp(spanEnd)}}","@l":"Information","@mt":"Smoke test event from {Source}","@tr":"{{traceId}}","@sp":"{{spanId}}","Source":"Seq.App.OpenTelemetry.SmokeTest"}
+        """;
     await app.OnAsync(sampleLog);
-    Console.WriteLine("Sample event sent.");
+    Console.WriteLine("Sample log event sent.");
+
+    var sampleSpan = $$"""
+        {"@t":"{{Timestamp(spanEnd)}}","@mt":"Smoke test span","@tr":"{{traceId}}","@sp":"{{spanId}}","@st":"{{Timestamp(spanStart)}}","@sk":"Internal"}
+        """;
+    await app.OnAsync(sampleSpan);
+    Console.WriteLine("Sample span sent.");
 
     await app.DisposeAsync();
-    Console.WriteLine("App disposed. Smoke test passed.");
+    Console.WriteLine("App disposed.");
+
+    if (errors.ErrorCount > 0)
+    {
+        Console.Error.WriteLine($"Smoke test failed: {errors.ErrorCount} error(s) were logged during export.");
+        return 1;
+    }
+
+    Console.WriteLine($"Smoke test passed. Check the target server for the log event and span with trace id {traceId}.");
 }
 catch (Exception ex)
 {
@@ -38,3 +71,12 @@ catch (Exception ex)
 }
 
 return 0;
+
+static string Timestamp(DateTime instant) => instant.ToString("O", CultureInfo.InvariantCulture);
+
+static string RandomHex(int bytes)
+{
+    var buffer = new byte[bytes];
+    Random.Shared.NextBytes(buffer);
+    return Convert.ToHexStringLower(buffer);
+}

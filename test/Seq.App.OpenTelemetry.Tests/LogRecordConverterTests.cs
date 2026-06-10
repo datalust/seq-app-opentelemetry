@@ -119,7 +119,7 @@ public class LogRecordConverterTests
         using var evt = ClefParser.Parse("""{"@t":"2024-01-15T10:30:00Z","@mt":"Hello {Name}"}""");
         var record = LogRecordConverter.Convert(evt);
 
-        var attr = record.Attributes.FirstOrDefault(a => a.Key == "seq.message.template");
+        var attr = record.Attributes.FirstOrDefault(a => a.Key == "message_template.text");
         Assert.NotNull(attr);
         Assert.Equal("Hello {Name}", attr.Value.StringValue);
     }

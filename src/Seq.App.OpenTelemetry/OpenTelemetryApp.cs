@@ -11,13 +11,13 @@ namespace Seq.App.OpenTelemetry;
     Description = "Forwards Seq events to an OTLP-compatible endpoint as logs and traces.")]
 public class OpenTelemetryApp : SeqApp, ISubscribeToJsonAsync, IAsyncDisposable
 {
-    IOtlpExporter? _exporter;
+    OtlpExporter? _exporter;
     BatchPump? _pump;
     IReadOnlyList<KeyValue>? _configuredResourceAttributes;
 
     public OpenTelemetryApp() { }
 
-    internal OpenTelemetryApp(IOtlpExporter exporter)
+    internal OpenTelemetryApp(OtlpExporter exporter)
     {
         _exporter = exporter;
     }
