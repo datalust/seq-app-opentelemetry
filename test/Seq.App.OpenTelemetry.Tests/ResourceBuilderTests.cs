@@ -46,6 +46,27 @@ public class ResourceBuilderTests
     }
 
     [Fact]
+    public void ServiceNameFallsBackToUnknownService()
+    {
+        var attrs = ResourceAttributes("""{"@t":"2024-01-15T10:30:00Z"}""");
+
+        Assert.Equal("unknown_service:seq-app-opentelemetry", attrs["service.name"].StringValue);
+    }
+
+    [Fact]
+    public void ConfiguredAttributesOverrideServiceNameFallback()
+    {
+        var configured = new[]
+        {
+            new KeyValue { Key = "service.name", Value = new AnyValue { StringValue = "configured" } }
+        };
+
+        var attrs = ResourceAttributes("""{"@t":"2024-01-15T10:30:00Z"}""", configured);
+
+        Assert.Equal("configured", attrs["service.name"].StringValue);
+    }
+
+    [Fact]
     public void BuildsScopeFromFlatAttributes()
     {
         // `@sa` is flat: `name` and `version` are well-known, sitting alongside other attributes,

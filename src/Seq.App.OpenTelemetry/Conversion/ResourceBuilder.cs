@@ -6,9 +6,12 @@ static class ResourceBuilder
 {
     public static Resource Build(ClefEvent evt, IReadOnlyList<KeyValue>? configuredAttributes)
     {
-        // Collect attributes in priority order; higher-priority sources overwrite lower.
+        // Collect attributes in priority order; higher-priority sources overwrite lower. The
+        // `service.name` fallback follows the OTel `unknown_service:` convention; most backends
+        // group telemetry by `service.name` and behave poorly when it's absent.
         var attrs = new Dictionary<string, AnyValue>
         {
+            ["service.name"] = new() { StringValue = "unknown_service:seq-app-opentelemetry" },
             ["telemetry.sdk.name"] = new() { StringValue = "seq-app-opentelemetry" },
             ["telemetry.sdk.language"] = new() { StringValue = "dotnet" }
         };

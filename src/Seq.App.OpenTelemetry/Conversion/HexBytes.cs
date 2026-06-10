@@ -24,6 +24,11 @@ static class HexBytes
 
     static ByteString ToByteString(string hex, int expectedLength)
     {
+        // OTLP treats absent and invalid ids equivalently, so rather than throwing (and losing the
+        // whole event), unparseable values are omitted.
+        if (hex.Length > expectedLength * 2)
+            return Empty;
+
         // Pad with leading zeros if shorter than expected
         if (hex.Length < expectedLength * 2)
             hex = hex.PadLeft(expectedLength * 2, '0');
@@ -31,9 +36,22 @@ static class HexBytes
         var bytes = new byte[expectedLength];
         for (var i = 0; i < expectedLength; i++)
         {
-            bytes[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
+            var hi = HexDigit(hex[i * 2]);
+            var lo = HexDigit(hex[i * 2 + 1]);
+            if (hi < 0 || lo < 0)
+                return Empty;
+
+            bytes[i] = (byte)(hi << 4 | lo);
         }
 
         return ByteString.CopyFrom(bytes);
     }
+
+    static int HexDigit(char c) => c switch
+    {
+        >= '0' and <= '9' => c - '0',
+        >= 'a' and <= 'f' => c - 'a' + 10,
+        >= 'A' and <= 'F' => c - 'A' + 10,
+        _ => -1
+    };
 }

@@ -48,44 +48,17 @@ static class LogRecordConverter
 
         if (evt.Exception != null)
         {
-            AddExceptionAttributes(record, evt.Exception);
+            ExceptionAttributes.AddTo(record.Attributes, evt.Exception);
         }
 
         return record;
     }
 
-    static void AddExceptionAttributes(LogRecord record, string exception)
-    {
-        // Try to parse "TypeName: Message\n   at ..." format
-        var firstNewline = exception.IndexOf('\n');
-        if (firstNewline > 0)
-        {
-            var firstLine = exception[..firstNewline].TrimEnd('\r');
-            var colonIndex = firstLine.IndexOf(": ", StringComparison.Ordinal);
-            if (colonIndex > 0)
-            {
-                record.Attributes.Add(new KeyValue
-                {
-                    Key = "exception.type",
-                    Value = new AnyValue { StringValue = firstLine[..colonIndex] }
-                });
-                record.Attributes.Add(new KeyValue
-                {
-                    Key = "exception.message",
-                    Value = new AnyValue { StringValue = firstLine[(colonIndex + 2)..] }
-                });
-            }
-        }
-
-        record.Attributes.Add(new KeyValue
-        {
-            Key = "exception.stacktrace",
-            Value = new AnyValue { StringValue = exception }
-        });
-    }
-
     internal static ulong ToUnixNano(DateTimeOffset timestamp)
     {
-        return (ulong)(timestamp.UtcTicks - DateTimeOffset.UnixEpoch.Ticks) * 100;
+        // OTLP defines zero as "unknown or missing timestamp"; pre-epoch values (including
+        // `default`, from events with missing or malformed `@t`) would otherwise wrap.
+        var ticks = timestamp.UtcTicks - DateTimeOffset.UnixEpoch.Ticks;
+        return ticks <= 0 ? 0ul : (ulong)ticks * 100;
     }
 }

@@ -4,7 +4,27 @@ namespace Seq.App.OpenTelemetry.Conversion;
 
 static class AnyValueConverter
 {
+    /// <summary>
+    /// Converts to a full OTLP <see cref="AnyValue"/>, preserving objects as structured kvlist
+    /// values. The OTel spec only permits kvlist attribute values on log records; use
+    /// <see cref="ConvertStandard"/> for span, resource, and scope attributes.
+    /// </summary>
     public static AnyValue Convert(JsonElement element)
+    {
+        return Convert(element, structured: true);
+    }
+
+    /// <summary>
+    /// Converts to a "standard" OTLP attribute value — primitives and arrays only, the value
+    /// types permitted on span, resource, and scope attributes. Objects (at any depth) are
+    /// JSON-encoded as strings, since backends commonly drop kvlist values in these positions.
+    /// </summary>
+    public static AnyValue ConvertStandard(JsonElement element)
+    {
+        return Convert(element, structured: false);
+    }
+
+    static AnyValue Convert(JsonElement element, bool structured)
     {
         switch (element.ValueKind)
         {
@@ -25,17 +45,20 @@ static class AnyValueConverter
             case JsonValueKind.Array:
                 var arrayValue = new ArrayValue();
                 foreach (var item in element.EnumerateArray())
-                    arrayValue.Values.Add(Convert(item));
+                    arrayValue.Values.Add(Convert(item, structured));
                 return new AnyValue { ArrayValue = arrayValue };
 
             case JsonValueKind.Object:
+                if (!structured)
+                    return new AnyValue { StringValue = element.GetRawText() };
+
                 var kvList = new KeyValueList();
                 foreach (var prop in element.EnumerateObject())
                 {
                     kvList.Values.Add(new KeyValue
                     {
                         Key = prop.Name,
-                        Value = Convert(prop.Value)
+                        Value = Convert(prop.Value, structured)
                     });
                 }
                 return new AnyValue { KvlistValue = kvList };
@@ -47,5 +70,4 @@ static class AnyValueConverter
                 return new AnyValue();
         }
     }
-
 }

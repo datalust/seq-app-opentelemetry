@@ -15,6 +15,14 @@ public class LogRecordConverterTests
     [InlineData("Warning", SeverityNumber.Warn, "Warning")]
     [InlineData("Error", SeverityNumber.Error, "Error")]
     [InlineData("Fatal", SeverityNumber.Fatal, "Fatal")]
+    // Seq doesn't constrain levels to the Serilog set; events ingested via OTLP, GELF, syslog,
+    // etc. carry their original level strings, mapped case-insensitively with common aliases.
+    [InlineData("WARN", SeverityNumber.Warn, "WARN")]
+    [InlineData("ERROR", SeverityNumber.Error, "ERROR")]
+    [InlineData("err", SeverityNumber.Error, "err")]
+    [InlineData("trace", SeverityNumber.Trace, "trace")]
+    [InlineData("Critical", SeverityNumber.Fatal, "Critical")]
+    [InlineData("Mystery", SeverityNumber.Info, "Mystery")]
     public void MapsSeverityCorrectly(string? level, SeverityNumber expectedNumber, string expectedText)
     {
         var json = level != null
@@ -63,6 +71,18 @@ public class LogRecordConverterTests
 
         Assert.Equal(expectedNano, record.TimeUnixNano);
         Assert.Equal(expectedNano, record.ObservedTimeUnixNano);
+    }
+
+    [Fact]
+    public void MissingTimestampMapsToUnknownNotWrapped()
+    {
+        // OTLP defines zero as "unknown or missing timestamp"; a default (pre-epoch) value must
+        // not wrap around to a huge unsigned nanosecond count.
+        using var evt = ClefParser.Parse("""{"@m":"no timestamp"}""");
+        var record = LogRecordConverter.Convert(evt);
+
+        Assert.Equal(0ul, record.TimeUnixNano);
+        Assert.Equal(0ul, record.ObservedTimeUnixNano);
     }
 
     [Fact]

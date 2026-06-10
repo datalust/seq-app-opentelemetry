@@ -20,7 +20,7 @@ class BatchBuilder
             _logGroups[resourceKey] = group;
         }
 
-        var scopeKey = scope?.Name ?? "";
+        var scopeKey = GetScopeKey(scope);
         if (!group.ScopeGroups.TryGetValue(scopeKey, out var scopeGroup))
         {
             scopeGroup = new ScopeLogGroup(scope);
@@ -41,7 +41,7 @@ class BatchBuilder
             _spanGroups[resourceKey] = group;
         }
 
-        var scopeKey = scope?.Name ?? "";
+        var scopeKey = GetScopeKey(scope);
         if (!group.ScopeGroups.TryGetValue(scopeKey, out var scopeGroup))
         {
             scopeGroup = new ScopeSpanGroup(scope);
@@ -111,6 +111,19 @@ class BatchBuilder
             .OrderBy(a => a.Key)
             .Select(a => $"{a.Key}={a.Value}");
         return string.Join("|", parts);
+    }
+
+    static string GetScopeKey(InstrumentationScope? scope)
+    {
+        // Name alone isn't sufficient: same-named scopes with different versions or attributes
+        // must not be merged, or records would be reported under the wrong scope.
+        if (scope == null)
+            return "";
+
+        var parts = scope.Attributes
+            .OrderBy(a => a.Key)
+            .Select(a => $"{a.Key}={a.Value}");
+        return $"{scope.Name}\n{scope.Version}\n{string.Join("|", parts)}";
     }
 
     sealed class ResourceLogGroup(Resource resource)
