@@ -26,9 +26,11 @@ class ClefEvent : IDisposable
     public DateTimeOffset? SpanStart { get; init; }
     public string? SpanKind { get; init; }
 
-    // Resource and scope
-    public JsonElement? Scope { get; init; }
-    public JsonElement? ResourceAttributes { get; init; }
+    // Resource and scope attributes. Seq sends these as object-valued `@ra`/`@sa` properties, so
+    // they share the same flat shape as `Properties`. Scope's `name` and `version` are well-known
+    // attributes that sit alongside the other scope attributes here.
+    public List<KeyValuePair<string, JsonElement>> ResourceAttributes { get; init; } = [];
+    public List<KeyValuePair<string, JsonElement>> ScopeAttributes { get; init; } = [];
 
     // All non-reified properties
     public List<KeyValuePair<string, JsonElement>> Properties { get; init; } = [];

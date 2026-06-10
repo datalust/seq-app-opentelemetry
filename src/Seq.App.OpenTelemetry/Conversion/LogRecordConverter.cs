@@ -41,7 +41,7 @@ static class LogRecordConverter
         {
             record.Attributes.Add(new KeyValue
             {
-                Key = "seq.event.id",
+                Key = "seq.event_type",
                 Value = new AnyValue { StringValue = evt.EventId }
             });
         }

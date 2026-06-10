@@ -90,17 +90,19 @@ public class ClefParserTests
     }
 
     [Fact]
-    public void ParsesScopeObject()
+    public void ParsesScopeAttributes()
     {
         using var evt = ClefParser.Parse("""
         {
             "@t":"2024-01-15T10:30:00Z",
-            "@sc":{"name":"MyLibrary","version":"1.0"}
+            "@sa":{"name":"MyLibrary","version":"1.0","schema.url":"https://example.com"}
         }
         """);
 
-        Assert.NotNull(evt.Scope);
-        Assert.Equal(JsonValueKind.Object, evt.Scope.Value.ValueKind);
+        var attrs = evt.ScopeAttributes.ToDictionary(a => a.Key, a => a.Value);
+        Assert.Equal("MyLibrary", attrs["name"].GetString());
+        Assert.Equal("1.0", attrs["version"].GetString());
+        Assert.Equal("https://example.com", attrs["schema.url"].GetString());
     }
 
     [Fact]
@@ -113,8 +115,17 @@ public class ClefParserTests
         }
         """);
 
-        Assert.NotNull(evt.ResourceAttributes);
-        Assert.Equal(JsonValueKind.Object, evt.ResourceAttributes.Value.ValueKind);
+        var attrs = evt.ResourceAttributes.ToDictionary(a => a.Key, a => a.Value);
+        Assert.Equal("my-service", attrs["service.name"].GetString());
+        Assert.Equal("2.0", attrs["service.version"].GetString());
+    }
+
+    [Fact]
+    public void IgnoresNonObjectResourceAndScopeAttributes()
+    {
+        using var evt = ClefParser.Parse("""{"@t":"2024-01-15T10:30:00Z","@ra":"oops","@sa":42}""");
+        Assert.Empty(evt.ResourceAttributes);
+        Assert.Empty(evt.ScopeAttributes);
     }
 
     [Fact]
@@ -208,8 +219,8 @@ public class ClefParserTests
         Assert.Null(evt.ParentSpanId);
         Assert.Null(evt.SpanStart);
         Assert.Null(evt.SpanKind);
-        Assert.Null(evt.Scope);
-        Assert.Null(evt.ResourceAttributes);
+        Assert.Empty(evt.ScopeAttributes);
+        Assert.Empty(evt.ResourceAttributes);
         Assert.Empty(evt.Properties);
     }
 }

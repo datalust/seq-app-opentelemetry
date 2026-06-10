@@ -30,7 +30,17 @@ static class AttributeFlattener
             return;
 
         foreach (var prop in obj.EnumerateObject())
-            FlattenInto(prop.Name, prop.Value, 1, attributes);
+            Flatten(prop.Name, prop.Value, attributes);
+    }
+
+    /// <summary>
+    /// Flattens a single <paramref name="key"/>/<paramref name="value"/> pair into
+    /// <paramref name="attributes"/> with the same nested-object unpacking as
+    /// <see cref="Flatten(JsonElement,IDictionary{string,AnyValue})"/>.
+    /// </summary>
+    public static void Flatten(string key, JsonElement value, IDictionary<string, AnyValue> attributes)
+    {
+        FlattenInto(key, value, 1, attributes);
     }
 
     static void FlattenInto(string key, JsonElement value, int depth, IDictionary<string, AnyValue> attributes)

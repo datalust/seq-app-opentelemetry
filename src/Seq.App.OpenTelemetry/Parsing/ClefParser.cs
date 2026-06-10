@@ -15,7 +15,7 @@ static class ClefParser
     static ReadOnlySpan<byte> Prop_ps => "@ps"u8;
     static ReadOnlySpan<byte> Prop_st => "@st"u8;
     static ReadOnlySpan<byte> Prop_sk => "@sk"u8;
-    static ReadOnlySpan<byte> Prop_sc => "@sc"u8;
+    static ReadOnlySpan<byte> Prop_sa => "@sa"u8;
     static ReadOnlySpan<byte> Prop_ra => "@ra"u8;
 
     public static ClefEvent Parse(string json)
@@ -34,8 +34,8 @@ static class ClefParser
         string? parentSpanId = null;
         DateTimeOffset? spanStart = null;
         string? spanKind = null;
-        JsonElement? scope = null;
-        JsonElement? resourceAttributes = null;
+        List<KeyValuePair<string, JsonElement>>? scopeAttributes = null;
+        List<KeyValuePair<string, JsonElement>>? resourceAttributes = null;
         var properties = new List<KeyValuePair<string, JsonElement>>();
 
         foreach (var prop in root.EnumerateObject())
@@ -90,13 +90,17 @@ static class ClefParser
             {
                 spanKind = prop.Value.GetString();
             }
-            else if (prop.NameEquals(Prop_sc))
+            else if (prop.NameEquals(Prop_sa))
             {
-                scope = prop.Value.Clone();
+                // Seq only ever sends an object-valued `@sa`.
+                if (prop.Value.ValueKind == JsonValueKind.Object)
+                    scopeAttributes = ReadProperties(prop.Value);
             }
             else if (prop.NameEquals(Prop_ra))
             {
-                resourceAttributes = prop.Value.Clone();
+                // Seq only ever sends an object-valued `@ra`.
+                if (prop.Value.ValueKind == JsonValueKind.Object)
+                    resourceAttributes = ReadProperties(prop.Value);
             }
             else
             {
@@ -127,9 +131,17 @@ static class ClefParser
             ParentSpanId = parentSpanId,
             SpanStart = spanStart,
             SpanKind = spanKind,
-            Scope = scope,
-            ResourceAttributes = resourceAttributes,
+            ScopeAttributes = scopeAttributes ?? [],
+            ResourceAttributes = resourceAttributes ?? [],
             Properties = properties
         };
+    }
+
+    static List<KeyValuePair<string, JsonElement>> ReadProperties(JsonElement obj)
+    {
+        var properties = new List<KeyValuePair<string, JsonElement>>();
+        foreach (var prop in obj.EnumerateObject())
+            properties.Add(new KeyValuePair<string, JsonElement>(prop.Name, prop.Value.Clone()));
+        return properties;
     }
 }
