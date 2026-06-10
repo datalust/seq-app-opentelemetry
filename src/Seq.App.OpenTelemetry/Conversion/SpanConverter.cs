@@ -21,15 +21,11 @@ static class SpanConverter
         // User properties → attributes
         foreach (var prop in evt.Properties)
         {
-            var converted = AnyValueConverter.Convert(prop.Value);
-            if (converted != null)
+            span.Attributes.Add(new KeyValue
             {
-                span.Attributes.Add(new KeyValue
-                {
-                    Key = prop.Key,
-                    Value = converted
-                });
-            }
+                Key = prop.Key,
+                Value = AnyValueConverter.Convert(prop.Value)
+            });
         }
 
         return span;

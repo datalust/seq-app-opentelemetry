@@ -130,7 +130,7 @@ public class LogRecordConverterTests
         using var evt = ClefParser.Parse("""{"@t":"2024-01-15T10:30:00Z","@i":"abc123"}""");
         var record = LogRecordConverter.Convert(evt);
 
-        var attr = record.Attributes.FirstOrDefault(a => a.Key == "seq.event.id");
+        var attr = record.Attributes.FirstOrDefault(a => a.Key == "seq.event_type");
         Assert.NotNull(attr);
         Assert.Equal("abc123", attr.Value.StringValue);
     }

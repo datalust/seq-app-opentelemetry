@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Seq.App.OpenTelemetry.Parsing;
 
 namespace Seq.App.OpenTelemetry.Conversion;
@@ -20,15 +19,8 @@ static class ResourceBuilder
                 attrs[attr.Key] = attr.Value;
         }
 
-        if (evt.ResourceAttributes is { ValueKind: JsonValueKind.Object } ra)
-        {
-            foreach (var prop in ra.EnumerateObject())
-            {
-                var converted = AnyValueConverter.Convert(prop.Value);
-                if (converted != null)
-                    attrs[prop.Name] = converted;
-            }
-        }
+        foreach (var (key, value) in evt.ResourceAttributes)
+            AttributeFlattener.Flatten(key, value, attrs);
 
         var resource = new Resource();
         foreach (var (key, value) in attrs)
@@ -41,37 +33,32 @@ static class ResourceBuilder
 
     public static InstrumentationScope? BuildScope(ClefEvent evt)
     {
-        if (evt.Scope is not { } sc || sc.ValueKind != JsonValueKind.Object)
+        if (evt.ScopeAttributes.Count == 0)
             return null;
 
         var scope = new InstrumentationScope();
+        var attributes = new Dictionary<string, AnyValue>();
 
-        foreach (var prop in sc.EnumerateObject())
+        // `@sa` is flat: `name` and `version` are well-known attributes that sit alongside any other
+        // scope attributes, which become OTLP scope attributes.
+        foreach (var (key, value) in evt.ScopeAttributes)
         {
-            switch (prop.Name)
+            switch (key)
             {
                 case "name":
-                    scope.Name = prop.Value.GetString() ?? "";
+                    scope.Name = value.GetString() ?? "";
                     break;
                 case "version":
-                    scope.Version = prop.Value.GetString() ?? "";
+                    scope.Version = value.GetString() ?? "";
                     break;
-                case "attributes" when prop.Value.ValueKind == JsonValueKind.Object:
-                    foreach (var attr in prop.Value.EnumerateObject())
-                    {
-                        var converted = AnyValueConverter.Convert(attr.Value);
-                        if (converted != null)
-                        {
-                            scope.Attributes.Add(new KeyValue
-                            {
-                                Key = attr.Name,
-                                Value = converted
-                            });
-                        }
-                    }
+                default:
+                    AttributeFlattener.Flatten(key, value, attributes);
                     break;
             }
         }
+
+        foreach (var (key, value) in attributes)
+            scope.Attributes.Add(new KeyValue { Key = key, Value = value });
 
         return scope;
     }
