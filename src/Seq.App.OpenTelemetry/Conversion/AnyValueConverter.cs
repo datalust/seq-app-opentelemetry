@@ -4,7 +4,7 @@ namespace Seq.App.OpenTelemetry.Conversion;
 
 static class AnyValueConverter
 {
-    public static AnyValue? Convert(JsonElement element)
+    public static AnyValue Convert(JsonElement element)
     {
         switch (element.ValueKind)
         {
@@ -25,33 +25,26 @@ static class AnyValueConverter
             case JsonValueKind.Array:
                 var arrayValue = new ArrayValue();
                 foreach (var item in element.EnumerateArray())
-                {
-                    var converted = Convert(item);
-                    if (converted != null)
-                        arrayValue.Values.Add(converted);
-                }
+                    arrayValue.Values.Add(Convert(item));
                 return new AnyValue { ArrayValue = arrayValue };
 
             case JsonValueKind.Object:
                 var kvList = new KeyValueList();
                 foreach (var prop in element.EnumerateObject())
                 {
-                    var converted = Convert(prop.Value);
-                    if (converted != null)
+                    kvList.Values.Add(new KeyValue
                     {
-                        kvList.Values.Add(new KeyValue
-                        {
-                            Key = prop.Name,
-                            Value = converted
-                        });
-                    }
+                        Key = prop.Name,
+                        Value = Convert(prop.Value)
+                    });
                 }
                 return new AnyValue { KvlistValue = kvList };
 
             case JsonValueKind.Null:
             case JsonValueKind.Undefined:
             default:
-                return null;
+                // OTLP represents a null/absent value as an AnyValue with no oneof field set.
+                return new AnyValue();
         }
     }
 

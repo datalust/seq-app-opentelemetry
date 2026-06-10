@@ -41,14 +41,17 @@ try
     var spanEnd = DateTime.UtcNow;
     var spanStart = spanEnd - TimeSpan.FromMilliseconds(120);
 
+    // Nested resource attributes; the exporter should flatten this to a `service.name` attribute.
+    var resourceAttributes = "\"@ra\":{\"service\":{\"name\":\"Seq.App.OpenTelemetry.SmokeTest\"}}";
+
     var sampleLog = $$"""
-        {"@t":"{{Timestamp(spanEnd)}}","@l":"Information","@mt":"Smoke test event from {Source}","@tr":"{{traceId}}","@sp":"{{spanId}}","Source":"Seq.App.OpenTelemetry.SmokeTest"}
+        {"@t":"{{Timestamp(spanEnd)}}","@l":"Information","@mt":"Smoke test event from {Source}","@tr":"{{traceId}}","@sp":"{{spanId}}",{{resourceAttributes}},"Source":"Seq.App.OpenTelemetry.SmokeTest"}
         """;
     await app.OnAsync(sampleLog);
     Console.WriteLine("Sample log event sent.");
 
     var sampleSpan = $$"""
-        {"@t":"{{Timestamp(spanEnd)}}","@mt":"Smoke test span","@tr":"{{traceId}}","@sp":"{{spanId}}","@st":"{{Timestamp(spanStart)}}","@sk":"Internal"}
+        {"@t":"{{Timestamp(spanEnd)}}","@mt":"Smoke test span","@tr":"{{traceId}}","@sp":"{{spanId}}","@st":"{{Timestamp(spanStart)}}","@sk":"Internal",{{resourceAttributes}}}
         """;
     await app.OnAsync(sampleSpan);
     Console.WriteLine("Sample span sent.");

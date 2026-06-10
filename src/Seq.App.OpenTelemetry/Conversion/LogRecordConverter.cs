@@ -20,15 +20,11 @@ static class LogRecordConverter
         // User properties → attributes
         foreach (var prop in evt.Properties)
         {
-            var converted = AnyValueConverter.Convert(prop.Value);
-            if (converted != null)
+            record.Attributes.Add(new KeyValue
             {
-                record.Attributes.Add(new KeyValue
-                {
-                    Key = prop.Key,
-                    Value = converted
-                });
-            }
+                Key = prop.Key,
+                Value = AnyValueConverter.Convert(prop.Value)
+            });
         }
 
         // Well-known attributes

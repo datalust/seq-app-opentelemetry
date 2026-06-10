@@ -22,12 +22,7 @@ static class ResourceBuilder
 
         if (evt.ResourceAttributes is { ValueKind: JsonValueKind.Object } ra)
         {
-            foreach (var prop in ra.EnumerateObject())
-            {
-                var converted = AnyValueConverter.Convert(prop.Value);
-                if (converted != null)
-                    attrs[prop.Name] = converted;
-            }
+            AttributeFlattener.Flatten(ra, attrs);
         }
 
         var resource = new Resource();
@@ -57,17 +52,11 @@ static class ResourceBuilder
                     scope.Version = prop.Value.GetString() ?? "";
                     break;
                 case "attributes" when prop.Value.ValueKind == JsonValueKind.Object:
-                    foreach (var attr in prop.Value.EnumerateObject())
+                    var attributes = new Dictionary<string, AnyValue>();
+                    AttributeFlattener.Flatten(prop.Value, attributes);
+                    foreach (var (key, value) in attributes)
                     {
-                        var converted = AnyValueConverter.Convert(attr.Value);
-                        if (converted != null)
-                        {
-                            scope.Attributes.Add(new KeyValue
-                            {
-                                Key = attr.Name,
-                                Value = converted
-                            });
-                        }
+                        scope.Attributes.Add(new KeyValue { Key = key, Value = value });
                     }
                     break;
             }
