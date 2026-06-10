@@ -36,7 +36,7 @@ static class LogRecordConverter
         {
             record.Attributes.Add(new KeyValue
             {
-                Key = "seq.message.template",
+                Key = "message_template.text",
                 Value = new AnyValue { StringValue = evt.MessageTemplate }
             });
         }

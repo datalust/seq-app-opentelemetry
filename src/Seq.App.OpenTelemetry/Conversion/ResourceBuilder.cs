@@ -8,21 +8,19 @@ static class ResourceBuilder
     public static Resource Build(ClefEvent evt, IReadOnlyList<KeyValue>? configuredAttributes)
     {
         // Collect attributes in priority order; higher-priority sources overwrite lower.
-        var attrs = new Dictionary<string, AnyValue>();
+        var attrs = new Dictionary<string, AnyValue>
+        {
+            ["telemetry.sdk.name"] = new() { StringValue = "seq-app-opentelemetry" },
+            ["telemetry.sdk.language"] = new() { StringValue = "dotnet" }
+        };
 
-        // 1. Defaults (lowest priority)
-        attrs["telemetry.sdk.name"] = new AnyValue { StringValue = "seq" };
-        attrs["telemetry.sdk.language"] = new AnyValue { StringValue = "dotnet" };
-
-        // 2. User-configured resource attributes
         if (configuredAttributes != null)
         {
             foreach (var attr in configuredAttributes)
                 attrs[attr.Key] = attr.Value;
         }
 
-        // 3. Event-level @ra (highest priority, from OTLP ingestion)
-        if (evt.ResourceAttributes is { } ra && ra.ValueKind == JsonValueKind.Object)
+        if (evt.ResourceAttributes is { ValueKind: JsonValueKind.Object } ra)
         {
             foreach (var prop in ra.EnumerateObject())
             {

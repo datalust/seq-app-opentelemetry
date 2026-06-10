@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Seq.Apps.Testing" Version="*" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="*" />
   </ItemGroup>
 
   <ItemGroup>

@@ -3,7 +3,7 @@ using Grpc.Net.Client;
 
 namespace Seq.App.OpenTelemetry.Export;
 
-class GrpcExporter : IOtlpExporter
+class GrpcExporter : OtlpExporter
 {
     readonly GrpcChannel _channel;
     readonly LogsService.LogsServiceClient _logsClient;
@@ -12,7 +12,10 @@ class GrpcExporter : IOtlpExporter
 
     public GrpcExporter(string endpoint, IReadOnlyList<KeyValuePair<string, string>>? headers)
     {
-        _channel = GrpcChannel.ForAddress(endpoint);
+        _channel = GrpcChannel.ForAddress(endpoint, new GrpcChannelOptions
+        {
+            ThrowOperationCanceledOnCancellation = true
+        });
         _logsClient = new LogsService.LogsServiceClient(_channel);
         _tracesClient = new TraceService.TraceServiceClient(_channel);
 
@@ -24,29 +27,29 @@ class GrpcExporter : IOtlpExporter
         }
     }
 
-    public async Task ExportLogsAsync(ExportLogsServiceRequest request, CancellationToken ct)
+    public override async Task ExportLogsAsync(ExportLogsServiceRequest request, CancellationToken ct)
     {
         try
         {
-            await _logsClient.ExportAsync(request, _metadata, cancellationToken: ct);
+            await _logsClient.ExportAsync(request, _metadata, DateTime.UtcNow + RequestTimeout, ct);
         }
         catch (RpcException ex) when (IsRetryableStatus(ex.StatusCode))
         {
             await Task.Delay(1000, ct);
-            await _logsClient.ExportAsync(request, _metadata, cancellationToken: ct);
+            await _logsClient.ExportAsync(request, _metadata, DateTime.UtcNow + RequestTimeout, ct);
         }
     }
 
-    public async Task ExportTracesAsync(ExportTraceServiceRequest request, CancellationToken ct)
+    public override async Task ExportTracesAsync(ExportTraceServiceRequest request, CancellationToken ct)
     {
         try
         {
-            await _tracesClient.ExportAsync(request, _metadata, cancellationToken: ct);
+            await _tracesClient.ExportAsync(request, _metadata, DateTime.UtcNow + RequestTimeout, ct);
         }
         catch (RpcException ex) when (IsRetryableStatus(ex.StatusCode))
         {
             await Task.Delay(1000, ct);
-            await _tracesClient.ExportAsync(request, _metadata, cancellationToken: ct);
+            await _tracesClient.ExportAsync(request, _metadata, DateTime.UtcNow + RequestTimeout, ct);
         }
     }
 
@@ -55,7 +58,7 @@ class GrpcExporter : IOtlpExporter
         return code is StatusCode.Unavailable or StatusCode.DeadlineExceeded;
     }
 
-    public ValueTask DisposeAsync()
+    public override ValueTask DisposeAsync()
     {
         _channel.Dispose();
         return default;
