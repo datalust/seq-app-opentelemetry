@@ -2,8 +2,6 @@
 
 Forwards Seq events to an OTLP-compatible endpoint as logs and traces.
 
-> This codebase is in the early preview phase, as an exploratory exercise and proof-of-concept. It contains code ported generatively from other Seq apps hand-written by Datalust and external contributors. We welcome feedback and bug reports (which we'll always respond to personally!).
-
 ## Getting started
 
 **1.** Install the app in Seq under _Settings > Apps_, using the `Seq.App.OpenTelemetry` package id.
@@ -49,4 +47,5 @@ SEQ_APP_SETTING_ENDPOINT=http://localhost:4318 dotnet run --project test/Seq.App
 
 ## Acknowledgements
 
-This codebase draws on the approach, structure, conventions, and examples in https://github.com/serilog/serilog-sinks-opentelemetry.
+This codebase draws on the approach, structure, conventions, and examples in https://github.com/serilog/serilog-sinks-opentelemetry, 
+https://github.com/datalust/seq-app-httprequest and https://github.com/datalust/seq-app-mail.
