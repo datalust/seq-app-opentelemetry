@@ -6,7 +6,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageIcon>seq-app-opentelemetry.png</PackageIcon>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +19,13 @@
     <PackageReference Include="Seq.Apps" Version="2023.4.*" />
     <PackageReference Include="Google.Protobuf" Version="3.30.*" />
     <PackageReference Include="Grpc.Net.Client" Version="2.71.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../asset/seq-app-opentelemetry.png" Pack="true" Visible="false" PackagePath="" />
+    <None Include="../../LICENSE" Pack="true" PackagePath="" />
+    <None Include="../../README.md" Pack="true" PackagePath="" />
+    <None Include="./obj/publish/**/*" Exclude="./obj/publish/$(MSBuildProjectName).dll;./obj/publish/Seq.Apps.dll;./obj/publish/Serilog.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
   </ItemGroup>
 
 </Project>
